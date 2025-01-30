@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from app.configs.config import load_general_config, load_secret_config, setup_logging
+from app.services.kafka_initializer import KafkaSinkCreator
 from app.services.kafka_services import KafkaProducerService, StockDataPublisher
 from app.services.rand_stock_data_generator import RandomStockDataGenerator
 from app.services.stock_data_fetcher import StockDataFetcher
@@ -15,9 +16,12 @@ async def main() -> None:
     general_config = load_general_config()
 
     # Create services
+    kafka_sink_initializer = KafkaSinkCreator(secret_config.kafka_sink_url)
     stock_data_fetcher = StockDataFetcher(secret_config.finnhub_token)
     kafka_producer_service = KafkaProducerService(secret_config.kafka_producer_url)
     stock_data_publisher = StockDataPublisher(stock_data_fetcher, kafka_producer_service)
+
+    kafka_sink_initializer.create_sink(general_config.message_config)
 
     logger.info(f"Configured to fetch and publish data for symbols: {', '.join(general_config.symbols)}")
 

@@ -29,9 +29,9 @@ class GeneralConfig:
 @dataclass
 class SecretConfig:
     alphavantage_token: str = None
-    questdb_connection_str: str = "postgresql://questdb:admin@localhost:8812/questdb"
+    questdb_connection_str: str = None
     questdb_rest_url: str = None
-    postgre_connection_string: str = None
+    postgres_connection_string: str = None
 
     def __post_init__(self):
         if self.alphavantage_token is None or len(self.alphavantage_token.strip()) == 0:
@@ -78,24 +78,24 @@ def load_secret_config() -> SecretConfig:
 
     questdb_connection_str = os.getenv(
         "QUESTDB_CONNECTION_STR",
-        "postgres://admin:quest@127.0.0.1:8812/qdb"
+        "postgres://admin:quest@questdb:8812/qdb"
     )
 
     questdb_rest_url = os.getenv(
         "QUESTDB_REST_URL",
-        "http://localhost:9000/imp?name=stock_data"
+        "http://questdb:9000/imp?name=stock_data"
     )
 
     postgres_connection_string = os.getenv(
         "POSTGRES_CONNECTION_STR",
-        "postgresql://admin:admin@localhost:5432/sentiment"
+        "postgresql://admin:admin@postgres:5432/sentiment"
     )
 
     return SecretConfig(
         alphavantage_token=alphavantage_token,
         questdb_connection_str=questdb_connection_str,
         questdb_rest_url=questdb_rest_url,
-        postgre_connection_string=postgres_connection_string
+        postgres_connection_string=postgres_connection_string
     )
 
 

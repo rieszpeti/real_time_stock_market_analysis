@@ -1,0 +1,27 @@
+apiVersion: 1
+datasources:
+  - name: questdb
+    type: questdb-questdb-datasource
+    uid: febdv59sdnpxcc
+    jsonData:
+      server: questdb
+      port: 8812
+      username: admin
+      tlsMode: disable
+      maxOpenConnections: 100
+      maxIdleConnections: 100
+      maxConnectionLifetime: 14400
+    secureJsonData:
+      password: quest
+  
+  - name: sentiment-postgres
+    type: postgres
+    uid: bebhv356s4mpsf
+    url: postgres:5432
+    user: admin
+    postgresVersion: 15
+    secureJsonData:
+      password: admin
+    jsonData:
+      sslmode: "disable"
+      database: sentiment

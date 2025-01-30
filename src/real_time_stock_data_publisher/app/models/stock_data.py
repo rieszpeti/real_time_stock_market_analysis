@@ -1,5 +1,5 @@
-import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 """
 I could have use Pydantic, but to keep it simple I added custom validation.
@@ -16,7 +16,7 @@ class StockData:
     low: float      # Low price of the day (l)
     close: float  # Previous close price (pc)
     volume: float | None # finnhub does not include this
-    timestamp: int = int(time.time() * 1000)
+    timestamp: str = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
     def __post_init__(self):
         if any(v is None for v in

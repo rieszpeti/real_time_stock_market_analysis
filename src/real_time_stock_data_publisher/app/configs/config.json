@@ -1,3 +1,18 @@
 {
-    "symbols": ["TSLA", "AAPL", "GOOG"]
+    "symbols": ["TSLA", "AAPL", "GOOG"],
+    "message_config": {
+        "name": "questdb-sink-stock",
+        "config": {
+            "connector.class": "io.questdb.kafka.QuestDBSinkConnector",
+            "tasks.max": "1",
+            "topics": "stock_data",
+            "table": "stock_data",
+            "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+            "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+            "key.converter.schemas.enable": "false",
+            "value.converter.schemas.enable": "false",
+            "host": "questdb",
+            "timestamp.field.name": "timestamp"
+        }
+    }
 }

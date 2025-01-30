@@ -20,9 +20,8 @@ async def main() -> None:
     repository = StockDataRepository(secrets_config.questdb_connection_str)
     await repository.create_tables()
 
-    secrets_config.alphavantage_token = "EMPTY"
-
-    sentiment_repo = SentimentUploader(connection_string=secrets_config.postgre_connection_string)
+    sentiment_repo = SentimentUploader(connection_string=secrets_config.postgres_connection_string)
+    await sentiment_repo.create_tables()
 
     await sentiment_repo.upload_json()
 

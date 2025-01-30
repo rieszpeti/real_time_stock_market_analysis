@@ -15,9 +15,6 @@ services:
     image: confluentinc/cp-kafka:7.3.2
     hostname: broker
     container_name: broker
-    depends_on:
-      - zookeeper
-      - health_checker
     ports:
       - "9092:9092"
       - "9101:9101"
@@ -34,6 +31,9 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
+    depends_on:
+      - zookeeper
+      - health_checker
       
 
   kafka-connect:
@@ -42,10 +42,6 @@ services:
       context: ./docker/
     hostname: connect
     container_name: connect
-    depends_on:
-      - broker
-      - zookeeper
-      - health_checker
     ports:
       - "8083:8083"
     environment:
@@ -62,9 +58,10 @@ services:
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
       CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-    volumes:
-      - ./docker/kafka-connect-sinks/questdb-sink-stock.properties:/etc/kafka-connect/jars/questdb-sink-stock.properties
-      
+    depends_on:
+      - broker
+      - zookeeper
+      - health_checker
 
   questdb:
     image: questdb/questdb
@@ -79,6 +76,8 @@ services:
       - "9003:9003"  # REST port
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/questdb:/var/lib/questdb"
 
   postgres:
     image: postgres:latest
@@ -89,10 +88,10 @@ services:
       POSTGRES_PASSWORD: admin
     ports:
       - "5432:5432"
-    #volumes:
-    #  - postgres_data:/var/lib/postgresql/data
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d sentiment"]
+      test: ["CMD-SHELL", "pg_isready -U admin -d sentiment"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -107,6 +106,7 @@ services:
         while ! curl -s questdb:9003; do 
           sleep 1; 
         done;
+        sleep 10
       "
 
   db_initializer:
@@ -117,10 +117,13 @@ services:
     environment:
       - QUESTDB_CONNECTION_STR=postgres://admin:quest@questdb:8812/qdb
       - QUESTDB_REST_URL=http://questdb:9000/imp?name=stock_data
+      - ALPHAVANTAGE_TOKEN=EMPTY
     env_file:
-      - ./src/db_initializer/.env
+      #- ./src/db_initializer/.env
+      - ./src/db_initializer/example.env
     depends_on:
-      - health_checker
+      health_checker:
+        condition: service_completed_successfully
 
   real_time_stock_data_publisher:
     build:
@@ -129,10 +132,13 @@ services:
     container_name: real_time_stock_data_publisher
     environment:
       - KAFKA_PRODUCER_URL=broker:29092
+      - FINNHUB_TOKEN=EMPTY
     env_file:
-      - ./src/real_time_stock_data_publisher/.env
+      #- ./src/real_time_stock_data_publisher/.env
+      - ./src/real_time_stock_data_publisher/example.env
     depends_on:
-      - health_checker
+      health_checker:
+        condition: service_completed_successfully
 
   grafana:
     image: grafana/grafana-oss
@@ -140,10 +146,16 @@ services:
     container_name: grafana
     environment:
       - GF_INSTALL_PLUGINS=questdb-questdb-datasource
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/dashboard.json
+      - GF_AUTH_ANONYMOUS_ENABLED=true
     ports:
       - "3000:3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - ./data/grafana:/var/lib/grafana'
     depends_on:
       - health_checker
       - db_initializer
