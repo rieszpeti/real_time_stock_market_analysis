@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry]
+name = "real-time-stock-data-publisher"
+version = "0.1.0"
+description = "A Python application for real-time stock data publishing"
+authors = ["Peter Riesz rieszpeti@gmail.com"]
+license = "MIT"
+packages = [
+  {include = "app"}
+]
+
+[tool.poetry.dependencies]
+python = "^3.12.1"
+requests = "^2.32.3"
+confluent-kafka = "^2.8.0"
+python-dotenv = "^1.0.1"
+aiohttp = "^3.11.11"

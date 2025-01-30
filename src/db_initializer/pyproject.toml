@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry]
+name = "db_initializer"
+version = "0.1.0"
+description = "A Python application to populate QuestDB with stock data."
+authors = ["Peter Riesz rieszpeti@gmail.com"]
+license = "MIT"
+packages = [
+    {include = "app"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.12.1"
+python-dotenv = "^1.0.1"
+asyncpg = "^0.30.0"
+aiohttp = "^3.11.11"
+python-dateutil = "^2.9.0.post0"
+motor = "^3.7.0"
+
+[tool.poetry.scripts]
+db_initializer = "app.main:run"

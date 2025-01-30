@@ -1,0 +1,799 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "his query uses a window function with FIRST_VALUE to get the first open value within a rolling window of the current and previous row, grouped by symbol.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "febdv59sdnpxcc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "questdb-questdb-datasource",
+            "uid": "febdv59sdnpxcc"
+          },
+          "expand": true,
+          "format": 1,
+          "hide": false,
+          "meta": {
+            "builderOptions": {
+              "fields": [],
+              "limit": "",
+              "mode": "list",
+              "timeField": ""
+            }
+          },
+          "queryType": "sql",
+          "rawSql": " SELECT \r\n    timestamp,\r\n    open,\r\n    symbol\r\n  FROM stock_data\r\n  WHERE symbol = '${symbols_list}';",
+          "refId": "B",
+          "selectedFormat": 2
+        }
+      ],
+      "title": "Open Stock Price",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "febdv59sdnpxcc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "timestamp"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "expand": true,
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "fields": [],
+              "limit": "",
+              "mode": "list",
+              "timeField": ""
+            }
+          },
+          "queryType": "sql",
+          "rawSql": "WITH \r\ndaily_data AS (\r\n  SELECT \r\n    timestamp,\r\n    first(open) AS open_price,\r\n    last(close) AS last_price,\r\n    symbol\r\n  FROM stock_data\r\n  WHERE symbol = '${symbols_list}'\r\n  SAMPLE BY 1d\r\n),\r\ndaily_with_prev AS (\r\n  SELECT\r\n    d.timestamp,\r\n    d.open_price,\r\n    d.last_price AS current_day_close,\r\n    prev.last_price AS previous_day_close_price,\r\n    d.open_price - prev.last_price AS open_vs_prev_close_diff, -- Daily gap\r\n    d.last_price - d.open_price AS intraday_change -- Intraday volatility\r\n  FROM daily_data d\r\n  LEFT JOIN daily_data prev \r\n    ON prev.timestamp = dateadd('d', -1, d.timestamp)\r\n  WHERE d.symbol = '${symbols_list}'\r\n)\r\nSELECT\r\n  MAX(ABS(open_vs_prev_close_diff)) AS Biggest_Daily_Gap,\r\n  AVG(ABS(intraday_change)) AS Average_Daily_Volatility,\r\n  timestamp\r\nFROM daily_with_prev\r\nWHERE previous_day_close_price IS NOT NULL\r\nGROUP BY timestamp;",
+          "refId": "A",
+          "selectedFormat": 2
+        }
+      ],
+      "title": "Daily Biggest Gap and Volatility",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "febdv59sdnpxcc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "expand": true,
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "fields": [],
+              "limit": "",
+              "mode": "list",
+              "timeField": ""
+            }
+          },
+          "queryType": "sql",
+          "rawSql": "SELECT\r\n    timestamp,\r\n    symbol,\r\n    open,\r\n    avg(open) OVER (\r\n        PARTITION BY symbol\r\n        ORDER BY timestamp\r\n        ROWS BETWEEN '${custom_average_interval_minutes}' PRECEDING AND CURRENT ROW\r\n    ) AS open_moving_avg\r\nFROM stock_data\r\nWHERE \r\n    open > 0 AND\r\n    symbol = '${symbols_list}';\r\n",
+          "refId": "A",
+          "selectedFormat": 2
+        }
+      ],
+      "title": "Parametrizable Moving Average with Open Price",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "uid": "febdv59sdnpxcc"
+      },
+      "description": "How much value do we put at risk by investing in a particular stock?¶\nThere are many ways we can quantify risk, one of the most basic ways using the information we've gathered on daily percentage returns is by comparing the expected return with the standard deviation of the daily returns.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.000002
+              },
+              {
+                "color": "yellow",
+                "value": 0.00002
+              },
+              {
+                "color": "#EAB839",
+                "value": 0.002
+              },
+              {
+                "color": "green",
+                "value": 0.2
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 8
+      },
+      "id": 5,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "expand": true,
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "fields": [],
+              "limit": "",
+              "mode": "list",
+              "timeField": ""
+            }
+          },
+          "queryType": "sql",
+          "rawSql": "WITH daily_returns AS (\r\n  SELECT\r\n    timestamp,\r\n    symbol,\r\n    ((last(close) - first(open)) / first(open)) * 100 AS daily_return_pct\r\n  FROM stock_data\r\n  WHERE symbol = '${symbols_list}'\r\n)\r\nSELECT\r\n  AVG(daily_return_pct) AS expected_return\r\n  --STDDEV_SAMP(daily_return_pct) AS volatility\r\nFROM daily_returns\r\nWHERE\r\n  symbol = '${symbols_list}';",
+          "refId": "A",
+          "selectedFormat": 2
+        }
+      ],
+      "title": "Daily Average Return",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "febdv59sdnpxcc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "#EAB839",
+                "value": 10
+              },
+              {
+                "color": "green",
+                "value": 20
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 8
+      },
+      "id": 6,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "fields": [],
+              "limit": "",
+              "mode": "list",
+              "timeField": ""
+            }
+          },
+          "queryType": "sql",
+          "rawSql": "WITH first_last AS (\r\n  SELECT\r\n    first(close) AS start_price,\r\n    last(close) AS end_price\r\n  FROM stock_data\r\n  WHERE symbol = '${symbols_list}'\r\n)\r\nSELECT\r\n  ((end_price - start_price) / start_price) * 100 AS price_change_pct\r\nFROM first_last;",
+          "refId": "A",
+          "selectedFormat": 2
+        }
+      ],
+      "title": "Price Change from First Ingested Data",
+      "type": "gauge"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 0,
+        "y": 16
+      },
+      "id": 7,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "**Sentiment Score Definition:**\n$sentiment_score_definition\n\n**Relevance Score Definition:**\n$relevance_score_definition\n",
+        "mode": "markdown"
+      },
+      "pluginVersion": "11.4.0",
+      "title": "Sentiment Score Definitions",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bebhv356s4mpsf"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 6,
+        "y": 16
+      },
+      "id": 8,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bebhv356s4mpsf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \r\n    ticker_sentiment->>'ticker' AS ticker,\r\n    AVG((ticker_sentiment->>'relevance_score')::float) AS avg_relevance_score,\r\n    AVG((ticker_sentiment->>'ticker_sentiment_score')::float) AS avg_sentiment_score\r\nFROM \r\n    sentiment_data,\r\n    jsonb_array_elements(content->'feed'->0->'ticker_sentiment') AS ticker_sentiment\r\nWHERE \r\n     ticker_sentiment->>'ticker' = '${symbols_list}'\r\nGROUP BY \r\n    ticker\r\nORDER BY \r\n    ticker;\r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Current Average Relevance and Sentiment Score ",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bebhv356s4mpsf"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "title"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 568
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sentiment_score"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "relevance_score"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 141
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "url"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 468
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 9,
+      "options": {
+        "cellHeight": "lg",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bebhv356s4mpsf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH sentiment_data_with_rank AS (\r\n    SELECT\r\n        content->>'items' AS items,\r\n        feed_item->>'title' AS title,\r\n        feed_item->>'url' AS url,\r\n        (ticker_sentiment->>'ticker_sentiment_score')::float AS sentiment_score,\r\n        (ticker_sentiment->>'relevance_score')::float AS relevance_score,\r\n        ROW_NUMBER() OVER (ORDER BY (ticker_sentiment->>'ticker_sentiment_score')::float DESC) AS best_rank,\r\n        ROW_NUMBER() OVER (ORDER BY (ticker_sentiment->>'ticker_sentiment_score')::float ASC) AS worst_rank\r\n    FROM\r\n        sentiment_data,\r\n        jsonb_array_elements(content->'feed') AS feed_item,\r\n        jsonb_array_elements(feed_item->'ticker_sentiment') AS ticker_sentiment\r\n)\r\nSELECT\r\n    title AS Title,\r\n    sentiment_score AS Sentiment_Score,\r\n    relevance_score AS Relevance_Score,\r\n    url AS URL,\r\n    CASE \r\n        WHEN best_rank = 1 THEN 'Positive'\r\n        WHEN worst_rank = 1 THEN 'Negative'\r\n    END AS Sentiment_Type\r\nFROM \r\n    sentiment_data_with_rank\r\nWHERE \r\n    best_rank = 1 OR worst_rank = 1\r\nORDER BY Sentiment_Type;\r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Best and Worst News by Sentiment Score",
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 40,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "TSLA",
+          "value": "TSLA"
+        },
+        "definition": "select distinct(symbol) from stock_data",
+        "description": "",
+        "name": "symbols_list",
+        "options": [],
+        "query": "select distinct(symbol) from stock_data",
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "15",
+          "value": "15"
+        },
+        "name": "custom_average_interval_minutes",
+        "options": [
+          {
+            "selected": true,
+            "text": "15",
+            "value": "15"
+          }
+        ],
+        "query": "15",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "x <= -0.35: Bearish; -0.35 < x <= -0.15: Somewhat-Bearish; -0.15 < x < 0.15: Neutral; 0.15 <= x < 0.35: Somewhat_Bullish; x >= 0.35: Bullish",
+          "value": "x <= -0.35: Bearish; -0.35 < x <= -0.15: Somewhat-Bearish; -0.15 < x < 0.15: Neutral; 0.15 <= x < 0.35: Somewhat_Bullish; x >= 0.35: Bullish"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "bebhv356s4mpsf"
+        },
+        "definition": "SELECT\n    content->>'sentiment_score_definition' AS Sentiment_Score_Definition\nFROM\n    sentiment_data\nORDER BY\n    uploaded_at DESC\nLIMIT 1;\n",
+        "hide": 2,
+        "name": "sentiment_score_definition",
+        "options": [],
+        "query": "SELECT\n    content->>'sentiment_score_definition' AS Sentiment_Score_Definition\nFROM\n    sentiment_data\nORDER BY\n    uploaded_at DESC\nLIMIT 1;\n",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "0 < x <= 1, with a higher score indicating higher relevance.",
+          "value": "0 < x <= 1, with a higher score indicating higher relevance."
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "bebhv356s4mpsf"
+        },
+        "definition": "SELECT\n    content->>'relevance_score_definition' AS relevance_score_definition\nFROM\n    sentiment_data\nORDER BY\n    uploaded_at DESC\nLIMIT 1;\n",
+        "hide": 2,
+        "name": "relevance_score_definition",
+        "options": [],
+        "query": "SELECT\n    content->>'relevance_score_definition' AS relevance_score_definition\nFROM\n    sentiment_data\nORDER BY\n    uploaded_at DESC\nLIMIT 1;\n",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "2024-09-03T04:00:00.000Z",
+    "to": "2025-01-28T19:59:00.000Z"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "single selected stock data real time analysis",
+  "uid": "febe2h6ff4f0gf",
+  "version": 70,
+  "weekStart": ""
+}

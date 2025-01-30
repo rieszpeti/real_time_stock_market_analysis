@@ -1,0 +1,149 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.2
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    depends_on:
+      - health_checker
+
+  broker:
+    image: confluentinc/cp-kafka:7.3.2
+    hostname: broker
+    container_name: broker
+    depends_on:
+      - zookeeper
+      - health_checker
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      
+
+  kafka-connect:
+    image: cp-kafka-connect-questdb
+    build:
+      context: ./docker/
+    hostname: connect
+    container_name: connect
+    depends_on:
+      - broker
+      - zookeeper
+      - health_checker
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: 'broker:29092'
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: compose-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
+      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+    volumes:
+      - ./docker/kafka-connect-sinks/questdb-sink-stock.properties:/etc/kafka-connect/jars/questdb-sink-stock.properties
+      
+
+  questdb:
+    image: questdb/questdb
+    hostname: questdb
+    container_name: questdb
+    environment:
+      QDB_PG_READONLY_USER_ENABLED: "true"
+    ports:
+      - "9000:9000"  # REST API and Web Console
+      - "9009:9009"  # TCP port
+      - "8812:8812"  # PostgreSQL port
+      - "9003:9003"  # REST port
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  postgres:
+    image: postgres:latest
+    container_name: sentiment_postgres
+    environment:
+      POSTGRES_DB: sentiment
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
+    #volumes:
+    #  - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d sentiment"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  health_checker:
+    image: curlimages/curl
+    depends_on:
+      - questdb
+    command: >
+      /bin/sh -c "
+        # wait for the questdb server to be fully operational
+        while ! curl -s questdb:9003; do 
+          sleep 1; 
+        done;
+      "
+
+  db_initializer:
+    build:
+      context: ./src/db_initializer/
+      dockerfile: Dockerfile
+    container_name: db_initializer
+    environment:
+      - QUESTDB_CONNECTION_STR=postgres://admin:quest@questdb:8812/qdb
+      - QUESTDB_REST_URL=http://questdb:9000/imp?name=stock_data
+    env_file:
+      - ./src/db_initializer/.env
+    depends_on:
+      - health_checker
+
+  real_time_stock_data_publisher:
+    build:
+      context: ./src/real_time_stock_data_publisher/
+      dockerfile: Dockerfile
+    container_name: real_time_stock_data_publisher
+    environment:
+      - KAFKA_PRODUCER_URL=broker:29092
+    env_file:
+      - ./src/real_time_stock_data_publisher/.env
+    depends_on:
+      - health_checker
+
+  grafana:
+    image: grafana/grafana-oss
+    hostname: grafana
+    container_name: grafana
+    environment:
+      - GF_INSTALL_PLUGINS=questdb-questdb-datasource
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - health_checker
+      - db_initializer
