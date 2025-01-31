@@ -36,15 +36,13 @@ The system currently supports the following analytical functions:
 - **Real-Time Processing:** A dedicated component periodically generates new data and **publishes it via Kafka** to QuestDB for real-time updates.  
 
 
-The data itself was gathered from Finnhub and Alphavantage for docker env there will be an initialization part which populate data in the databases. Then for real time producing there will be a component which creates data periodically and sends it via Kafka to the QuestDB.
-
-### Application Visualization
+## Application Visualization
 
 ![alt text](pictures/real_time_stock_data.drawio.png)
 
-### Dashboard Picture
+## Dashboard Picture
 
-![alt text](image.png)
+![alt text](pictures/dashboard_pic.png)
 
 ## Running the application
 
