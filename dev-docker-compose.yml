@@ -206,5 +206,3 @@ services:
         condition: service_completed_successfully
       db_initializer:
         condition: service_completed_successfully
-      real_time_stock_data_publisher:
-        condition: service_completed_successfully
