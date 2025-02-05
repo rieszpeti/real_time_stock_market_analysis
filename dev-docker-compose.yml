@@ -1,42 +1,55 @@
-services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.3.2
-    hostname: zookeeper
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-
+services:  
   broker:
-    image: confluentinc/cp-kafka:7.3.2
+    image: confluentinc/cp-kafka:7.8.0
     hostname: broker
     container_name: broker
     ports:
       - "9092:9092"
       - "9101:9101"
     environment:
+      CLUSTER_ID: 'QTkwRDkzMDg3QTdFNDJCRU'
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_ENABLE_KRAFT: yes
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker:29093'
       KAFKA_JMX_PORT: 9101
-      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_JMX_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka0 -Dcom.sun.management.jmxremote.rmi.port=9101
+      KAFKA_LISTENERS: 'PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 8888:8080
     depends_on:
-      - zookeeper
-      
+      - broker
+      - kafka-connect
+    links:
+      - broker:broker
+    environment:
+      KAFKA_CLUSTERS_0_NAME: kafka
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:29092
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9101
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083
 
   kafka-connect:
-    image: cp-kafka-connect-questdb
-    build:
-      context: ./docker/
+    image: confluentinc/cp-kafka-connect-base:7.8.0
     hostname: connect
     container_name: connect
     ports:
@@ -46,29 +59,60 @@ services:
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
       CONNECT_REST_PORT: 8083
       CONNECT_GROUP_ID: compose-connect-group
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 500
       CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
       CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false" 
       CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
       CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_ERRORS_RETRY_TIMEOUT: 90000
+      CONNECT_ERRORS_RETRY_DELAY_MAX_MS: 120000
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/etc/kafka-connect/jars,/usr/share/confluent-hub-components"
+      QUESTDB_HTTP_ENDPOINT: "host.docker.internal:9000"
+      CONNECT_LISTENERS: http://0.0.0.0:8083
     depends_on:
       - broker
-      - zookeeper
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./docker/kafka-connect:/etc/kafka-connect/jars
+
+  schema_registry:
+    image: confluentinc/cp-schema-registry:7.8.0
+    hostname: schema_registry
+    container_name: schema_registry
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema_registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: '*'
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: 'GET,POST,PUT,OPTIONS'
+    depends_on:
+      - broker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 
   questdb:
     image: questdb/questdb
     hostname: questdb
     container_name: questdb
     environment:
-      QDB_PG_READONLY_USER_ENABLED: "true"
+      - QDB_DEBUG=true
+      # QDB_PG_READONLY_USER_ENABLED: 'TRUE'
+      - QDB_METRICS_ENABLED=TRUE
+      - QDB_LINE_TCP_WRITER_WORKER_COUNT=1
+      - JAVA_OPTS=-Djava.locale.providers=JRE,SPI
     ports:
+      - "8812:8812"  # PostgreSQL port
       - "9000:9000"  # REST API and Web Console
       - "9009:9009"  # TCP port
-      - "8812:8812"  # PostgreSQL port
       - "9003:9003"  # REST port
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -94,6 +138,7 @@ services:
 
   health_checker:
     image: curlimages/curl
+    container_name: health_checker
     depends_on:
       - questdb
     command: >
@@ -102,8 +147,9 @@ services:
         while ! curl -s questdb:9003; do 
           sleep 1; 
         done;
-        sleep 60
-      "
+        sleep 60 
+      " 
+    # DO NOT do this in prod: sleep 60 
 
   db_initializer:
     build:
@@ -135,7 +181,10 @@ services:
     depends_on:
       health_checker:
         condition: service_completed_successfully
-
+      db_initializer:
+        condition: service_completed_successfully
+    restart: on-failure
+        
   grafana:
     image: grafana/grafana-oss
     hostname: grafana
@@ -153,5 +202,9 @@ services:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
       - ./data/grafana:/var/lib/grafana'
     depends_on:
-      - health_checker
-      - db_initializer
+      health_checker:
+        condition: service_completed_successfully
+      db_initializer:
+        condition: service_completed_successfully
+      real_time_stock_data_publisher:
+        condition: service_completed_successfully

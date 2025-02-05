@@ -21,7 +21,12 @@ async def main() -> None:
     kafka_producer_service = KafkaProducerService(secret_config.kafka_producer_url)
     stock_data_publisher = StockDataPublisher(stock_data_fetcher, kafka_producer_service)
 
-    kafka_sink_initializer.create_sink(general_config.message_config)
+    is_init_valid = kafka_sink_initializer.create_sink(general_config.message_config)
+
+    if not is_init_valid:
+        logger.error("Failed to create sink")
+        logger.error("Exit from program...")
+        raise Exception("Failed to create sink!")
 
     logger.info(f"Configured to fetch and publish data for symbols: {', '.join(general_config.symbols)}")
 
