@@ -19,7 +19,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 2,
   "links": [],
   "panels": [
     {
@@ -98,11 +98,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "11.5.1",
       "targets": [
         {
           "refId": "A"
@@ -192,7 +193,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "11.5.1",
       "targets": [
         {
           "expand": true,
@@ -290,11 +291,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "11.5.1",
       "targets": [
         {
           "expand": true,
@@ -376,7 +378,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "11.5.1",
       "targets": [
         {
           "expand": true,
@@ -454,7 +456,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "11.5.1",
       "targets": [
         {
           "format": 1,
@@ -496,7 +498,7 @@
         "content": "**Sentiment Score Definition:**\n$sentiment_score_definition\n\n**Relevance Score Definition:**\n$relevance_score_definition\n",
         "mode": "markdown"
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "11.5.1",
       "title": "Sentiment Score Definitions",
       "type": "text"
     },
@@ -544,7 +546,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "11.5.1",
       "targets": [
         {
           "datasource": {
@@ -677,7 +679,7 @@
         "showHeader": true,
         "sortBy": []
       },
-      "pluginVersion": "11.4.0",
+      "pluginVersion": "11.5.1",
       "targets": [
         {
           "datasource": {
@@ -718,9 +720,14 @@
   "templating": {
     "list": [
       {
+        "allowCustomValue": false,
         "current": {
-          "text": "TSLA",
-          "value": "TSLA"
+          "text": "AAPL",
+          "value": "AAPL"
+        },
+        "datasource": {
+          "type": "questdb-questdb-datasource",
+          "uid": "febdv59sdnpxcc"
         },
         "definition": "select distinct(symbol) from stock_data",
         "description": "",
@@ -787,13 +794,13 @@
     ]
   },
   "time": {
-    "from": "2024-09-03T04:00:00.000Z",
-    "to": "2025-01-28T19:59:00.000Z"
+    "from": "now-5m",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "single selected stock data real time analysis",
-  "uid": "febe2h6ff4f0gf",
-  "version": 70,
+  "title": "single selected stock data real time analysis Copy",
+  "uid": "aecryccrv86wwd",
+  "version": 1,
   "weekStart": ""
 }
