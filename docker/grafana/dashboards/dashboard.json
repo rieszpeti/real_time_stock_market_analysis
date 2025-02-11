@@ -15,11 +15,10 @@
       }
     ]
   },
-  "description": "his query uses a window function with FIRST_VALUE to get the first open value within a rolling window of the current and previous row, grouped by symbol.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 3,
   "links": [],
   "panels": [
     {
@@ -143,6 +142,7 @@
           "color": {
             "mode": "thresholds"
           },
+          "decimals": 4,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -159,19 +159,11 @@
           },
           "unit": "currencyUSD"
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "timestamp"
-            },
-            "properties": []
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 6,
         "x": 12,
         "y": 0
       },
@@ -179,7 +171,7 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
@@ -207,12 +199,86 @@
             }
           },
           "queryType": "sql",
-          "rawSql": "WITH \r\ndaily_data AS (\r\n  SELECT \r\n    timestamp,\r\n    first(open) AS open_price,\r\n    last(close) AS last_price,\r\n    symbol\r\n  FROM stock_data\r\n  WHERE symbol = '${symbols_list}'\r\n  SAMPLE BY 1d\r\n),\r\ndaily_with_prev AS (\r\n  SELECT\r\n    d.timestamp,\r\n    d.open_price,\r\n    d.last_price AS current_day_close,\r\n    prev.last_price AS previous_day_close_price,\r\n    d.open_price - prev.last_price AS open_vs_prev_close_diff, -- Daily gap\r\n    d.last_price - d.open_price AS intraday_change -- Intraday volatility\r\n  FROM daily_data d\r\n  LEFT JOIN daily_data prev \r\n    ON prev.timestamp = dateadd('d', -1, d.timestamp)\r\n  WHERE d.symbol = '${symbols_list}'\r\n)\r\nSELECT\r\n  MAX(ABS(open_vs_prev_close_diff)) AS Biggest_Daily_Gap,\r\n  AVG(ABS(intraday_change)) AS Average_Daily_Volatility,\r\n  timestamp\r\nFROM daily_with_prev\r\nWHERE previous_day_close_price IS NOT NULL\r\nGROUP BY timestamp;",
+          "rawSql": "WITH daily_data AS (\r\n  SELECT \r\n    timestamp,\r\n    first(open) AS open_price,\r\n    last(close) AS last_price,\r\n    symbol\r\n  FROM stock_data\r\n  WHERE symbol = '${symbols_list}'\r\n  SAMPLE BY 1d\r\n),\r\ndaily_with_prev AS (\r\n  SELECT\r\n    d.timestamp,\r\n    d.open_price,\r\n    d.last_price AS current_day_close,\r\n    prev.last_price AS previous_day_close_price,\r\n    d.open_price - prev.last_price AS open_vs_prev_close_diff, -- Daily gap\r\n    d.last_price - d.open_price AS intraday_change -- Intraday volatility\r\n  FROM daily_data d\r\n  LEFT JOIN daily_data prev \r\n    ON prev.timestamp = dateadd('d', -1, d.timestamp)\r\n  WHERE d.symbol = '${symbols_list}'\r\n)\r\nSELECT\r\n  MAX(ABS(open_vs_prev_close_diff)) AS Biggest_Daily_Gap,\r\n  AVG(ABS(intraday_change)) AS Average_Daily_Volatility,\r\n  timestamp\r\nFROM daily_with_prev\r\nWHERE previous_day_close_price IS NOT NULL\r\nGROUP BY timestamp;",
           "refId": "A",
           "selectedFormat": 2
         }
       ],
       "title": "Daily Biggest Gap and Volatility",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "febdv59sdnpxcc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 4,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.5.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "questdb-questdb-datasource",
+            "uid": "febdv59sdnpxcc"
+          },
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "fields": [],
+              "limit": "",
+              "mode": "list",
+              "timeField": ""
+            }
+          },
+          "queryType": "sql",
+          "rawSql": "WITH scoped_data AS (\r\n  SELECT \r\n    open AS open_price,\r\n    close AS last_price\r\n  FROM stock_data\r\n  WHERE symbol = '${symbols_list}'\r\n    AND timestamp BETWEEN ${__from} * 1000 AND ${__to} * 1000\r\n)\r\nSELECT\r\n  MAX(ABS(open_price - last_price)) AS Biggest_Gap,\r\n  AVG(ABS(open_price - last_price)) AS Average_Volatility\r\nFROM scoped_data;",
+          "refId": "A",
+          "selectedFormat": 2
+        }
+      ],
+      "title": "Current Time Range Scores",
       "type": "stat"
     },
     {
@@ -715,6 +781,7 @@
     }
   ],
   "preload": false,
+  "refresh": "1s",
   "schemaVersion": 40,
   "tags": [],
   "templating": {
@@ -797,10 +864,24 @@
     "from": "now-5m",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+    "refresh_intervals": [
+      "1s",
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ]
+  },
   "timezone": "browser",
-  "title": "single selected stock data real time analysis Copy",
-  "uid": "aecryccrv86wwd",
-  "version": 1,
+  "title": "single selected stock data real time analysis 1.1",
+  "uid": "aecs0msva1ddsc",
+  "version": 2,
   "weekStart": ""
 }
