@@ -2,11 +2,10 @@ import asyncio
 import logging
 
 from app.configs.config import load_general_config, load_secret_config, setup_logging
-from app.services.csv_uploader import StockDataUploader
 from app.services.sentiment_uploader import SentimentUploader
-from app.services.stock_data_fetcher import StockDataFetcher
 from app.services.stock_data_repository import StockDataRepository
-from app.services.stock_data_service import StockDataService
+from app.services.abstract_dbinitializer import AbstractDbInitializer
+from app.services.dbinitializer_factory import DBInitializeType, DBInitializerFactory
 
 
 async def main() -> None:
@@ -25,14 +24,20 @@ async def main() -> None:
 
     await sentiment_repo.upload_json()
 
-    if secrets_config.alphavantage_token == "EMPTY":
-        stock_data_uploader = StockDataUploader(secrets_config.questdb_rest_url)
-        await stock_data_uploader.upload_data()
-    else:
-        fetcher = StockDataFetcher(secrets_config.alphavantage_token,)
-        service = StockDataService(fetcher, repository)
+    db_initialization_type: DBInitializeType = (
+        DBInitializeType.FETCH_API
+        if secrets_config.alphavantage_token == "EMPTY"
+        else DBInitializeType.RANDOM_DATA
+    )
+        
+    service: AbstractDbInitializer = DBInitializerFactory.get_db_initializer(
+        db_initialization_type,
+        secrets_config,
+        general_config,
+        repository
+    )
 
-        await service.fetch_stock_data_from(general_config.symbols, general_config.scrape_start_date)
+    await service.initialize()
 
 
 if __name__ == "__main__":

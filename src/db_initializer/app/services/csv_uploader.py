@@ -5,8 +5,10 @@ import aiohttp
 from typing import AsyncGenerator
 from pathlib import Path
 
+from .abstract_dbinitializer import AbstractDbInitializer
 
-class StockDataUploader:
+
+class StockDataUploader(AbstractDbInitializer):
     """Class responsible for reading stock data from csv files and uploading it to the database."""
 
     def __init__(self, url: str):
@@ -14,7 +16,7 @@ class StockDataUploader:
         self.resources_folder = self._setup_resource_folder()
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    async def upload_data(self) -> None:
+    async def _upload_data(self) -> None:
         """Uploads CSV files to the database asynchronously."""
         try:
             async with aiohttp.ClientSession() as session:
@@ -53,4 +55,5 @@ class StockDataUploader:
         except Exception as e:
             self.logger.error(f"Error uploading {csv_path.name}: {e}")
 
-
+    async def initialize(self) -> None:
+        await self._upload_data()

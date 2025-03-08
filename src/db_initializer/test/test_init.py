@@ -134,7 +134,7 @@ class TestInitialization:
 
         # act
         stock_data_uploader = StockDataUploader(self._rest_url)
-        await stock_data_uploader.upload_data()
+        await stock_data_uploader.initialize()
 
         csv_df = self._create_df_from_csvs(csv_dir)
         db_df = await self._create_df_from_db()
